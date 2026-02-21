@@ -1,14 +1,8 @@
-# Python
-__pycache__/
-*.pyc
-
 # Runtime files
-threat_log.txt
 app.log
-output.txt
-input.txt
-injections.json
-history.json
+Backend/injections.json
+Backend/stripe_cache.json
+Backend/history.json
 
 # Secrets
 .env

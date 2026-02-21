@@ -10,13 +10,12 @@ module Api
 
       Rails.logger.info("[SanitizeController] Processing #{text.length} char(s)")
 
-      parser     = ParserService.new(text)
-      parsed     = parser.sanitize
-      validation = parser.validation
-      heuristics = parser.heuristics
+      parser            = ParserService.new(text)
+      validation        = parser.validation
+      heuristics        = parser.heuristics
       flagged_by_parser = parser.threats_detected?
 
-      result     = SanitizeService.new(parsed).call
+      result     = SanitizeService.new(parser.sanitize).call
       injections = result[:injections]
       flagged    = flagged_by_parser || injections.any?
       risk_score = compute_risk_score(flagged_by_parser, injections, validation)
@@ -40,12 +39,11 @@ module Api
       }
 
       persist_history(entry)
-
       render json: entry
     end
 
     def injections
-      file = Rails.root.join("..", "injections.json")
+      file = Rails.root.join(AppConfig[:injections_file])
       data = file.exist? ? JSON.parse(file.read) : []
       render json: { injections: data }
     rescue JSON::ParserError
@@ -53,7 +51,7 @@ module Api
     end
 
     def history
-      file = Rails.root.join("..", "history.json")
+      file = Rails.root.join(AppConfig[:history_file])
       data = file.exist? ? JSON.parse(file.read) : []
       render json: { history: data }
     rescue JSON::ParserError
@@ -63,26 +61,28 @@ module Api
     private
 
     def compute_risk_score(parser_flagged, injections, validation)
+      risk  = AppConfig[:risk]
       score = 0
-      score += 40 if parser_flagged
-      score += [injections.length * 20, 40].min
-      score += 10 if validation[:lengthCheck] == "fail"
-      score += 10 if validation[:encodingCheck] == "fail"
+      score += risk[:parser_flag_weight]   if parser_flagged
+      score += [injections.length * risk[:injection_weight], risk[:parser_flag_weight]].min
+      score += risk[:encoding_fail_weight] if validation[:encodingCheck] == "fail"
       [score, 100].min
     end
 
     def risk_level_for(score)
-      if score > 60 then "high"
-      elsif score > 30 then "medium"
-      else "low"
+      risk = AppConfig[:risk]
+      if    score > risk[:high_threshold]   then "high"
+      elsif score > risk[:medium_threshold] then "medium"
+      else  "low"
       end
     end
 
     def persist_history(entry)
-      file = Rails.root.join("..", "history.json")
+      file    = Rails.root.join(AppConfig[:history_file])
       history = file.exist? ? JSON.parse(file.read) : []
       history << entry.transform_keys(&:to_s)
       file.write(JSON.generate(history))
+      Rails.logger.info("[SanitizeController] History updated (#{history.length} entries)")
     rescue => e
       Rails.logger.error("[SanitizeController] Failed to persist history: #{e.message}")
     end
