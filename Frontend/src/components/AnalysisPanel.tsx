@@ -105,8 +105,6 @@ export function AnalysisPanel({ prompt }: AnalysisPanelProps) {
           </h3>
           <div className="bg-secondary rounded-md border border-border px-4 py-1">
             <ValidationRow label="Character Filtering" status={prompt.validation.characterFiltering} />
-            <ValidationRow label="Regex Pattern Check" status={prompt.validation.regexCheck} />
-            <ValidationRow label="Length Validation"   status={prompt.validation.lengthCheck} />
             <ValidationRow label="Encoding Check"      status={prompt.validation.encodingCheck} />
           </div>
         </div>

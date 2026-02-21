@@ -7,9 +7,10 @@ interface MetricCardsProps {
   anomalyConfidence: number;
 }
 
-export function MetricCards({ totalPrompts, threatsBlocked, avgRiskScore, anomalyConfidence }: MetricCardsProps) {
+export function MetricCards({ totalPrompts, threatsBlocked, avgRiskScore }: MetricCardsProps) {
   return (
-    <div className="grid grid-cols-4 gap-4 p-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-6 w-full">
+      
       {/* Total Prompts */}
       <div className="gradient-card rounded-lg border border-border p-5">
         <div className="flex items-center justify-between mb-3">
@@ -60,18 +61,8 @@ export function MetricCards({ totalPrompts, threatsBlocked, avgRiskScore, anomal
         </div>
         <p className="text-xs text-muted-foreground mt-1">Scale: 0–100</p>
       </div>
-
-      {/* Anomaly Confidence */}
-      <div className="gradient-safe rounded-lg border border-primary/20 p-5 glow-safe">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Anomaly Detection</span>
-          <BrainCircuit className="w-4 h-4 text-primary" />
-        </div>
-        <p className="text-3xl font-semibold font-mono text-primary animate-counter">
-          {anomalyConfidence}%
-        </p>
-        <p className="text-xs text-primary/70 mt-1">Model v2.4 — Active</p>
-      </div>
+      
     </div>
   );
 }
+

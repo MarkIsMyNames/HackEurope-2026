@@ -16,24 +16,12 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary text-sm">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-pulse-dot absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
           </span>
           <span>Live Monitoring</span>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary text-sm">
-          <Activity className="w-3.5 h-3.5 text-primary" />
-          <span className="text-muted-foreground">System Health:</span>
-          <span className="text-primary font-mono font-medium">98.7%</span>
-        </div>
-
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary text-sm">
-          <Zap className="w-3.5 h-3.5 text-warning" />
-          <span className="text-muted-foreground">Latency:</span>
-          <span className="text-foreground font-mono font-medium">12ms</span>
         </div>
       </div>
     </header>
