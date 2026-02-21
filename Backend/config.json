@@ -7,6 +7,7 @@
   "injections_file": "injections.json",
   "history_file": "history.json",
   "prompt_file": "prompt.txt",
+  "parser_config_file": "parser_config.json",
   "http": {
     "open_timeout": 10,
     "read_timeout": 60
