@@ -18,13 +18,6 @@ The detector works in two steps:
 
 If content is flagged, it is blocked before it is sent downstream and surfaced in the dashboard for review.
 
-## Prompt Injection Pentesting
-
-The project also supports pentesting.
-
-It can generate and run malicious prompt tests against this tool, and other AI systems.
-
-This lets you compare detection performance and measure block rates across different tools.
 
 ## Example Use Case
 
