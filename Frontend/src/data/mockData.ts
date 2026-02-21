@@ -20,4 +20,10 @@ export interface PromptEntry {
   };
   mlInsight: string;
   flagged: boolean;
+  downstreamOutput?: string;
+  safetyReview?: {
+    safe: boolean;
+    verdict: "safe" | "unsafe" | "unknown";
+    reason: string;
+  };
 }

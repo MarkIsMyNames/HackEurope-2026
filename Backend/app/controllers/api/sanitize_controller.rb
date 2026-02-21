@@ -35,13 +35,15 @@ module Api
         source:     "Web Client",
         flagged:    flagged,
         mlInsight:  result[:ml_insight],
+        downstreamOutput: result[:downstream_output],
+        safetyReview: result[:safety_review],
         validation: validation,
         heuristics: heuristics
       }
     end
 
     def injections
-      file = Rails.root.join("..", "injections.json")
+      file = Rails.root.join(AppConfig[:injections_file] || "../injections.json")
       data = file.exist? ? JSON.parse(file.read) : []
       render json: { injections: data }
     rescue JSON::ParserError
@@ -51,17 +53,19 @@ module Api
     private
 
     def compute_risk_score(parser_flagged, injections, validation)
+      risk = AppConfig[:risk] || {}
       score = 0
-      score += 40 if parser_flagged
-      score += [injections.length * 20, 40].min
-      score += 10 if validation[:lengthCheck] == "fail"
-      score += 10 if validation[:encodingCheck] == "fail"
+      score += (risk[:parser_flag_weight] || 40) if parser_flagged
+      score += [injections.length * (risk[:injection_weight] || 20), risk[:max_injection_weight] || 40].min
+      score += (risk[:length_fail_weight] || 10) if validation[:lengthCheck] == "fail"
+      score += (risk[:encoding_fail_weight] || 10) if validation[:encodingCheck] == "fail"
       [score, 100].min
     end
 
     def risk_level_for(score)
-      if score > 60 then "high"
-      elsif score > 30 then "medium"
+      risk = AppConfig[:risk] || {}
+      if score > (risk[:high_threshold] || 60) then "high"
+      elsif score > (risk[:medium_threshold] || 30) then "medium"
       else "low"
       end
     end
