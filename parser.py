@@ -9,8 +9,9 @@ class PromptInjectionDetector:
             "abcdefghijklmnopqrstuvwxyz"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             "0123456789"
-            " "                 # space only
+            " \n"                 # space only
             ".,!?:;'\"()[]{}@#%&+=~`^|<>"  # common punctuation
+            "$£€¥₩₹¢₽₺₿"                  # currency symbols
         )
         self.malicious_patterns = [
             ";", "--", "/*", "*/",
