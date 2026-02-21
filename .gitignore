@@ -1,9 +1,30 @@
-threat_log.txt
-app.log
-.env
+# Python
 __pycache__/
 *.pyc
+
+# Runtime files
+threat_log.txt
+app.log
 output.txt
 input.txt
-.idea
 injections.json
+
+# Secrets
+.env
+.env*
+
+# IDE
+.idea
+
+# Frontend
+Frontend/node_modules/
+Frontend/dist/
+Frontend/dist-ssr/
+Frontend/*.local
+
+# Backend
+Backend/.env
+Backend/.env*
+Backend/log/*.log
+Backend/tmp/pids/*
+Backend/.bundle
