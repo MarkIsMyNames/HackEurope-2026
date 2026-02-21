@@ -1,6 +1,9 @@
 # Runtime files
 app.log
+injections.json
 Backend/injections.json
+Backend/history.json
+Backend/stripe_cache.json
 
 # Secrets
 .env

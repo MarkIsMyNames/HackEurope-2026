@@ -2,11 +2,7 @@ require "net/http"
 require "json"
 
 class SanitizeService
-  SAFETY_DEFAULT = {
-    safe: false,
-    verdict: "unknown",
-    reason: "Safety review unavailable"
-  }.freeze
+  SAFETY_DEFAULT = { safe: false, verdict: "unknown", reason: "Safety review unavailable" }.freeze
 
   def initialize(text)
     @text   = text
@@ -14,33 +10,46 @@ class SanitizeService
   end
 
   def call
-    known     = load_injections
-    system    = build_system_prompt(known)
-    raw       = call_claude(system)
-    result    = parse_response(raw)
-    sanitized = result.fetch("sanitized", @text)
-    injections = (result.fetch("injections", []) || []).select { |i| i.to_s.strip.length > 0 }
+    known      = load_injections
+    raw        = call_sanitize_llm(build_sanitize_prompt(known))
+    result     = parse_sanitize_response(raw)
+    sanitized  = result.fetch("sanitized", @text)
+    injections = result.fetch("injections", []).to_a.select { |i| i.to_s.strip.length > 0 }
 
     save_injections(known, injections) if injections.any?
-
-    downstream_output = run_downstream_llm(sanitized)
-    safety_review     = run_safety_llm(downstream_output)
 
     @logger.info("[SanitizeService] #{injections.length} injection(s) found")
     injections.each { |i| @logger.warn("[SanitizeService] Injection removed: #{i}") }
 
+    downstream_output = run_downstream_llm(sanitized)
+    safety_review     = run_safety_llm(downstream_output)
+
     {
-      sanitized: sanitized,
-      injections: injections,
-      ml_insight: ml_insight(injections),
+      sanitized:         sanitized,
+      injections:        injections,
+      ml_insight:        ml_insight(injections),
       downstream_output: downstream_output,
-      safety_review: safety_review
+      safety_review:     safety_review
     }
   end
 
   private
+
+  # ── File helpers ─────────────────────────────────────────────────────────────
+
+  def backend_file(filename)
+    Rails.root.join(filename)
+  end
+
+  def read_prompt_file(filename)
+    path = backend_file(filename)
+    path.exist? ? path.read.strip : ""
+  end
+
+  # ── Injection memory ─────────────────────────────────────────────────────────
+
   def load_injections
-    file = file_from_config("injections_file", "../injections.json")
+    file = backend_file(AppConfig[:injections_file])
     return [] unless file.exist?
 
     JSON.parse(file.read)
@@ -49,18 +58,19 @@ class SanitizeService
   end
 
   def save_injections(known, new_injections)
-    file = file_from_config("injections_file", "../injections.json")
+    file     = backend_file(AppConfig[:injections_file])
     combined = (known + new_injections).uniq
     file.write(JSON.pretty_generate(combined))
-    @logger.info("[SanitizeService] Injections log updated (#{combined.length} total) at #{file}")
+    @logger.info("[SanitizeService] Injections log updated (#{combined.length} total)")
   end
 
-  def build_system_prompt(known)
-    prompt_file = file_from_config("prompt_file", "../prompt.txt")
-    base = prompt_file.exist? ? prompt_file.read : "You sanitize text and return strict JSON."
+  # ── Sanitize LLM ─────────────────────────────────────────────────────────────
+
+  def build_sanitize_prompt(known)
+    base  = read_prompt_file(AppConfig[:prompt_file])
+    limit = AppConfig[:injections_example_limit]
     return base if known.empty?
 
-    limit = config_value("injections_example_limit", 40).to_i
     examples = known.last(limit).map { |i| "  • \"#{i}\"" }.join("\n")
     base.rstrip + "\n\n" \
       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
@@ -70,133 +80,110 @@ class SanitizeService
       "#{examples}"
   end
 
-  def call_claude(system_prompt)
-    api_url = config_value("anthropic_api_url", "https://api.anthropic.com/v1/messages")
-    api_version = config_value("anthropic_api_version", "2023-06-01")
-    model = config_value("model", "claude-sonnet-4-6")
-    max_tokens = config_value("max_tokens", 4096)
-
-    uri  = URI(api_url)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl      = true
-    http.open_timeout = config_value("http", "open_timeout", 10)
-    http.read_timeout = config_value("http", "read_timeout", 60)
-
-    request = Net::HTTP::Post.new(uri)
-    request["Content-Type"]         = "application/json"
-    request["x-api-key"]            = ENV.fetch("ANTHROPIC_API_KEY")
-    request["anthropic-version"]    = api_version
-
-    request.body = JSON.generate({
-      model:      model,
-      max_tokens: max_tokens,
-      system:     system_prompt,
-      messages:   [{ role: "user", content: "Analyse and sanitise:\n\n#{@text}" }]
-    })
-
-    @logger.info("[SanitizeService] Sending request to Claude (#{model})")
-    response = http.request(request)
-    body     = JSON.parse(response.body)
-    body.dig("content", 0, "text").to_s.strip
+  def call_sanitize_llm(system_prompt)
+    @logger.info("[SanitizeService] Sending sanitize request to Claude (#{AppConfig[:model]})")
+    LlmGatewayService.new(
+      api_url:       AppConfig[:anthropic_api_url],
+      api_key:       ENV.fetch("ANTHROPIC_API_KEY"),
+      model:         AppConfig[:model],
+      system_prompt: system_prompt,
+      user_input:    "Analyse and sanitise:\n\n#{@text}",
+      max_tokens:    AppConfig[:max_tokens],
+      temperature:   0.0,
+      logger:        @logger
+    ).call
   end
 
-  def parse_response(raw)
+  def parse_sanitize_response(raw)
     cleaned = raw.gsub(/\A```(?:json)?\s*/m, "").gsub(/\s*```\z/m, "").strip
     JSON.parse(cleaned)
   rescue JSON::ParserError
-    @logger.warn("[SanitizeService] Claude response was not valid JSON — using raw text")
+    @logger.warn("[SanitizeService] Sanitize response was not valid JSON — using raw text")
     { "sanitized" => raw, "injections" => [] }
   end
 
-  def run_downstream_llm(sanitized)
-    return "" unless config_value("downstream_llm", "enabled", true)
+  # ── Downstream LLM ───────────────────────────────────────────────────────────
 
-    api_key_env = config_value("downstream_llm", "api_key_env", "ANTHROPIC_API_KEY")
-    api_key = ENV[api_key_env].to_s
+  def run_downstream_llm(sanitized)
+    cfg = AppConfig[:downstream_llm]
+    return "" unless cfg[:enabled]
+
+    api_key = ENV.fetch(cfg[:api_key_env], "")
     if api_key.empty?
-      @logger.warn("[SanitizeService] Downstream LLM skipped: missing env #{api_key_env}")
+      @logger.warn("[SanitizeService] Downstream LLM skipped: env #{cfg[:api_key_env]} not set")
       return ""
     end
 
+    @logger.info("[SanitizeService] Sending downstream request to #{cfg[:model]}")
     LlmGatewayService.new(
-      api_url: config_value("downstream_llm", "api_url", "https://api.anthropic.com/v1/messages"),
-      api_key: api_key,
-      model: config_value("downstream_llm", "model", "claude-sonnet-4-6"),
-      user_input: sanitized,
-      system_prompt: config_value("downstream_llm", "system_prompt", "You are a concise assistant. Respond directly to the user input."),
-      max_tokens: config_value("downstream_llm", "max_tokens", 600),
-      temperature: config_value("downstream_llm", "temperature", 0.2),
-      logger: @logger
+      api_url:       cfg[:api_url],
+      api_key:       api_key,
+      model:         cfg[:model],
+      system_prompt: read_prompt_file(cfg[:prompt_file]),
+      user_input:    sanitized,
+      max_tokens:    cfg[:max_tokens],
+      temperature:   cfg[:temperature],
+      logger:        @logger
     ).call
   rescue StandardError => e
     @logger.error("[SanitizeService] Downstream LLM failed: #{e.message}")
     ""
   end
 
+  # ── Safety LLM ───────────────────────────────────────────────────────────────
+
   def run_safety_llm(downstream_output)
     return SAFETY_DEFAULT if downstream_output.to_s.strip.empty?
-    return SAFETY_DEFAULT unless config_value("safety_llm", "enabled", true)
 
-    api_key_env = config_value("safety_llm", "api_key_env", "ANTHROPIC_API_KEY")
-    api_key = ENV[api_key_env].to_s
+    cfg = AppConfig[:safety_llm]
+    return SAFETY_DEFAULT unless cfg[:enabled]
+
+    api_key = ENV.fetch(cfg[:api_key_env], "")
     if api_key.empty?
-      @logger.warn("[SanitizeService] Safety LLM skipped: missing env #{api_key_env}")
-      return SAFETY_DEFAULT.merge(reason: "Safety LLM skipped: missing API key")
+      @logger.warn("[SanitizeService] Safety LLM skipped: env #{cfg[:api_key_env]} not set")
+      return SAFETY_DEFAULT
     end
 
+    @logger.info("[SanitizeService] Sending safety review request to #{cfg[:model]}")
     raw = LlmGatewayService.new(
-      api_url: config_value("safety_llm", "api_url", "https://api.anthropic.com/v1/messages"),
-      api_key: api_key,
-      model: config_value("safety_llm", "model", "claude-sonnet-4-6"),
-      user_input: "Classify this model output:\n\n#{downstream_output}",
-      system_prompt: config_value("safety_llm", "system_prompt", "Return JSON only: {\"safe\": boolean, \"verdict\": \"safe\"|\"unsafe\"|\"unknown\", \"reason\": string}"),
-      max_tokens: config_value("safety_llm", "max_tokens", 350),
-      temperature: config_value("safety_llm", "temperature", 0.0),
-      logger: @logger
+      api_url:       cfg[:api_url],
+      api_key:       api_key,
+      model:         cfg[:model],
+      system_prompt: read_prompt_file(cfg[:prompt_file]),
+      user_input:    "Classify this model output:\n\n#{downstream_output}",
+      max_tokens:    cfg[:max_tokens],
+      temperature:   cfg[:temperature],
+      logger:        @logger
     ).call
 
     parse_safety_response(raw)
   rescue StandardError => e
     @logger.error("[SanitizeService] Safety LLM failed: #{e.message}")
-    SAFETY_DEFAULT.merge(reason: "Safety analysis failed")
+    SAFETY_DEFAULT.merge(reason: "Safety analysis failed: #{e.message}")
   end
 
   def parse_safety_response(raw)
-    cleaned = raw.to_s.gsub(/\A```(?:json)?\s*/m, "").gsub(/\s*```\z/m, "").strip
-    parsed = JSON.parse(cleaned)
-
+    cleaned = raw.gsub(/\A```(?:json)?\s*/m, "").gsub(/\s*```\z/m, "").strip
+    parsed  = JSON.parse(cleaned)
     {
-      safe: !!parsed["safe"],
+      safe:    !!parsed["safe"],
       verdict: parsed["verdict"].to_s.presence || "unknown",
-      reason: parsed["reason"].to_s.presence || "Safety model returned no reason"
+      reason:  parsed["reason"].to_s.presence  || "No reason given"
     }
   rescue JSON::ParserError
-    {
-      safe: false,
-      verdict: "unknown",
-      reason: raw.to_s.presence || "Safety model did not return JSON"
-    }
+    { safe: false, verdict: "unknown", reason: raw.to_s.presence || "Safety model did not return JSON" }
   end
 
-  def config_value(*path)
-    default = path.pop
-    value = path.reduce(AppConfig) { |acc, key| acc.respond_to?(:[]) ? acc[key] : nil }
-    value.nil? ? default : value
-  end
-
-  def file_from_config(config_key, default)
-    Rails.root.join(config_value(config_key, default))
-  end
+  # ── ML insight ───────────────────────────────────────────────────────────────
 
   def ml_insight(injections)
     return "No anomalous patterns detected. Standard user query." if injections.empty?
 
-    templates = [
+    [
       "Token pattern matches known jailbreak template (confidence: #{rand(85..99)}%)",
       "Semantic similarity to prompt extraction attack: #{rand(75..99).to_f / 100}",
       "Instruction override attempt detected via role confusion vector",
       "Multi-turn manipulation attempt detected. Context window exploit."
-    ]
-    templates.sample
+    ].sample
   end
 end

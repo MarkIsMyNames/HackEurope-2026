@@ -1,10 +1,9 @@
 class ParserService
-  WHITELIST = /[^a-zA-Z0-9 \n.,!?:;'"()\[\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿]/
-
+  WHITELIST          = /[^a-zA-Z0-9 \n.,!?:;'"()\[\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿]/
   MALICIOUS_PATTERNS = %w[; -- /* */ UNION SELECT INSERT DELETE DROP EXEC].freeze
 
   def initialize(text)
-    @text = text
+    @text   = text
     @logger = Rails.logger
   end
 
@@ -24,22 +23,19 @@ class ParserService
   end
 
   def validation
-    has_threats   = threats_detected?
-    has_encoding  = encoded?
-    over_length   = @text.length > 2000
+    threats = threats_detected?
+    encoded = encoded?
 
     {
-      characterFiltering: has_threats ? "fail" : "pass",
-      regexCheck:         has_threats ? "fail" : "pass",
-      lengthCheck:        over_length ? "fail" : "pass",
-      encodingCheck:      has_encoding ? "fail" : "pass"
+      characterFiltering: threats ? "fail" : "pass",
+      encodingCheck:      encoded ? "fail" : "pass"
     }
   end
 
   def heuristics
     words        = @text.split
     unique_ratio = words.empty? ? 0 : (words.uniq.length.to_f / words.length * 100).round
-    char_variety = (@text.chars.uniq.length.to_f / [(@text.length), 1].max * 100).round
+    char_variety = (@text.chars.uniq.length.to_f / [@text.length, 1].max * 100).round
 
     {
       length:          [(@text.length.to_f / 20).round, 100].min,

@@ -129,6 +129,8 @@ GEM
     nio4r (2.7.5)
     nokogiri (1.19.1-x64-mingw-ucrt)
       racc (~> 1.4)
+    nokogiri (1.19.1-x86_64-linux-gnu)
+      racc (~> 1.4)
     prism (1.5.2)
     psych (5.2.2)
       date
@@ -202,6 +204,7 @@ GEM
 
 PLATFORMS
   x64-mingw-ucrt
+  x86_64-linux
 
 DEPENDENCIES
   bootsnap
@@ -256,6 +259,7 @@ CHECKSUMS
   net-smtp (0.5.1)
   nio4r (2.7.5)
   nokogiri (1.19.1-x64-mingw-ucrt)
+  nokogiri (1.19.1-x86_64-linux-gnu)
   prism (1.5.2)
   psych (5.2.2)
   puma (7.2.0)
