@@ -7,19 +7,20 @@ import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PromptEntry } from "@/data/mockData";
 import { sanitizeText } from "@/lib/api";
+import { useSession } from "@/contexts/SessionContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2 } from "lucide-react";
 
 const Index = () => {
-  const [prompts, setPrompts] = useState<PromptEntry[]>([]);
+  const { prompts, addPrompt } = useSession();
   const [selectedPrompt, setSelectedPrompt] = useState<PromptEntry | null>(null);
   const [inputText, setInputText] = useState("");
 
   const mutation = useMutation({
     mutationFn: sanitizeText,
     onSuccess: (entry) => {
-      setPrompts((prev) => [entry, ...prev]);
+      addPrompt(entry);
       setSelectedPrompt(entry);
       setInputText("");
     },
@@ -36,6 +37,7 @@ const Index = () => {
     prompts.length > 0
       ? Math.round(prompts.reduce((s, p) => s + p.riskScore, 0) / prompts.length)
       : 0;
+  const totalInjections = prompts.reduce((s, p) => s + p.injections.length, 0);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -46,7 +48,7 @@ const Index = () => {
           totalPrompts={prompts.length}
           threatsBlocked={threatsBlocked}
           avgRiskScore={avgRiskScore}
-          anomalyConfidence={96}
+          totalInjections={totalInjections}
         />
 
         {/* Input row */}

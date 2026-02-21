@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { SessionProvider } from "./contexts/SessionContext";
 import Index from "./pages/Index";
 import Analytics from "./pages/Analytics";
 import RuleConfig from "./pages/RuleConfig";
@@ -19,18 +20,20 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/"                element={<Index />} />
-          <Route path="/analytics"       element={<Analytics />} />
-          <Route path="/rules"           element={<RuleConfig />} />
-          <Route path="/incidents"       element={<IncidentLogs />} />
-          <Route path="/pricing"         element={<Pricing />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment/cancel"  element={<PaymentCancel />} />
-          <Route path="*"                element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <SessionProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/"                element={<Index />} />
+            <Route path="/analytics"       element={<Analytics />} />
+            <Route path="/rules"           element={<RuleConfig />} />
+            <Route path="/incidents"       element={<IncidentLogs />} />
+            <Route path="/pricing"         element={<Pricing />} />
+            <Route path="/payment/success" element={<PaymentSuccess />} />
+            <Route path="/payment/cancel"  element={<PaymentCancel />} />
+            <Route path="*"                element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </SessionProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
