@@ -17,5 +17,23 @@
     "parser_flag_weight": 40,
     "injection_weight": 20,
     "encoding_fail_weight": 10
+  },
+  "downstream_llm": {
+    "enabled": true,
+    "api_url": "https://api.anthropic.com/v1/messages",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 600,
+    "temperature": 0.2,
+    "prompt_file": "downstream_prompt.txt"
+  },
+  "safety_llm": {
+    "enabled": true,
+    "api_url": "https://api.anthropic.com/v1/messages",
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 350,
+    "temperature": 0.0,
+    "prompt_file": "safety_prompt.txt"
   }
 }
