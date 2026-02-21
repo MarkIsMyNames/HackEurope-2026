@@ -34,6 +34,8 @@ module Api
         source:     "Web Client",
         flagged:    flagged,
         mlInsight:  result[:ml_insight],
+        downstreamOutput: result[:downstream_output],
+        safetyReview: result[:safety_review],
         validation: validation,
         heuristics: heuristics
       }
