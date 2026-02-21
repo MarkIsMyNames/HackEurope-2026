@@ -1,13 +1,6 @@
-# Python
-__pycache__/
-*.pyc
-
 # Runtime files
-threat_log.txt
 app.log
-output.txt
-input.txt
-injections.json
+Backend/injections.json
 
 # Secrets
 .env
