@@ -1,0 +1,20 @@
+{
+  "anthropic_api_url": "https://api.anthropic.com/v1/messages",
+  "anthropic_api_version": "2023-06-01",
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 4096,
+  "injections_example_limit": 40,
+  "injections_file": "injections.json",
+  "prompt_file": "../prompt.txt",
+  "http": {
+    "open_timeout": 10,
+    "read_timeout": 60
+  },
+  "risk": {
+    "high_threshold": 60,
+    "medium_threshold": 30,
+    "parser_flag_weight": 40,
+    "injection_weight": 20,
+    "encoding_fail_weight": 10
+  }
+}

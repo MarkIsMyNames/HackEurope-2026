@@ -82,6 +82,39 @@ CORS is configured in `Backend/config/initializers/cors.rb` to allow `localhost:
 - `src/pages/IncidentLogs.tsx` — lists all logged injections from the API
 - `src/components/AnalysisPanel.tsx` — displays sanitized output, injections removed, validation checks, radar chart, ML insight
 
+## Stripe integration
+
+Stripe Checkout is implemented fully in the Rails backend. The frontend calls the checkout endpoint, receives a Stripe-hosted URL, and redirects the user there.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/stripe/checkout` | Creates a Stripe Checkout session, returns `{ url }` |
+| `POST` | `/api/stripe/webhook` | Receives and verifies signed Stripe webhook events |
+
+**Price ID resolution (`StripeService`):** Priority order:
+1. `STRIPE_PRICE_ID` env var (set this in production)
+2. `Backend/stripe_cache.json` (written automatically on first run — gitignored)
+3. Auto-creates a PromptSecure product + price (€300 EUR) via the Stripe API and caches it
+
+**Setup:**
+
+1. Add `STRIPE_SECRET_KEY` to `Backend/.env` (get from [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys))
+2. Optionally set `STRIPE_PRICE_ID` to skip auto-creation
+3. For webhooks: create a webhook endpoint in the Stripe Dashboard pointing to `POST /api/stripe/webhook`, copy the signing secret into `STRIPE_WEBHOOK_SECRET`
+4. Set `FRONTEND_URL` in `Backend/.env` if deploying (defaults to `http://localhost:5173`)
+
+**Key backend files:**
+- `Backend/config/initializers/stripe.rb` — sets `Stripe.api_key` from env at boot
+- `Backend/app/services/stripe_service.rb` — price ID resolution and auto-creation
+- `Backend/app/controllers/api/stripe_controller.rb` — checkout and webhook actions
+
+**Frontend flow:**
+- `/pricing` — product page with checkout button; calls `createCheckoutSession()` from `src/lib/api.ts` then redirects to Stripe
+- `/payment/success` — shown after successful payment
+- `/payment/cancel` — shown when user cancels; includes "Try again" link back to `/pricing`
+
 ## Technology constraints
 
 The backend is **Ruby on Rails only**. Do not introduce Python scripts, shell scripts, or additional frameworks to handle backend logic — all server-side code belongs in the Rails app as services, controllers, or initializers. If a feature requires new backend logic, add it in `Backend/app/services/` or `Backend/app/controllers/`.
