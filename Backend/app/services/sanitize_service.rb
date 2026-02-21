@@ -5,8 +5,10 @@ class SanitizeService
   SAFETY_DEFAULT = { safe: false, verdict: "unknown", reason: "Safety review unavailable" }.freeze
 
   def initialize(text)
-    @text   = text
-    @logger = Rails.logger
+    @text            = text
+    @logger          = Rails.logger
+    @injections_file = Rails.root.join(AppConfig[:injections_file])
+    @prompt_file     = Rails.root.join(AppConfig[:prompt_file])
   end
 
   def call
@@ -37,37 +39,31 @@ class SanitizeService
 
   # ── File helpers ─────────────────────────────────────────────────────────────
 
-  def backend_file(filename)
-    Rails.root.join(filename)
-  end
-
   def read_prompt_file(filename)
-    path = backend_file(filename)
+    path = Rails.root.join(filename)
     path.exist? ? path.read.strip : ""
   end
 
   # ── Injection memory ─────────────────────────────────────────────────────────
 
   def load_injections
-    file = backend_file(AppConfig[:injections_file])
-    return [] unless file.exist?
+    return [] unless @injections_file.exist?
 
-    JSON.parse(file.read)
+    JSON.parse(@injections_file.read)
   rescue JSON::ParserError
     []
   end
 
   def save_injections(known, new_injections)
-    file     = backend_file(AppConfig[:injections_file])
     combined = (known + new_injections).uniq
-    file.write(JSON.pretty_generate(combined))
+    @injections_file.write(JSON.pretty_generate(combined))
     @logger.info("[SanitizeService] Injections log updated (#{combined.length} total)")
   end
 
   # ── Sanitize LLM ─────────────────────────────────────────────────────────────
 
   def build_sanitize_prompt(known)
-    base  = read_prompt_file(AppConfig[:prompt_file])
+    base  = @prompt_file.read.strip
     limit = AppConfig[:injections_example_limit]
     return base if known.empty?
 

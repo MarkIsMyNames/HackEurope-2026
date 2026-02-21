@@ -22,6 +22,16 @@ export async function fetchInjections(): Promise<string[]> {
   return data.injections as string[];
 }
 
+export async function createCheckoutSession(): Promise<string> {
+  const res = await fetch(`${API_BASE}/stripe/checkout`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.url as string;
+}
+
 export async function sanitizeText(text: string): Promise<PromptEntry> {
   const res = await fetch(`${API_BASE}/sanitize`, {
     method: "POST",
