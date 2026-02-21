@@ -9,8 +9,6 @@ export interface PromptEntry {
   source: string;
   validation: {
     characterFiltering: "pass" | "fail";
-    regexCheck: "pass" | "fail";
-    lengthCheck: "pass" | "fail";
     encodingCheck: "pass" | "fail";
   };
   heuristics: {
