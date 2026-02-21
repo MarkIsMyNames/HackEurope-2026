@@ -1,6 +1,5 @@
 class ParserService
-  WHITELIST = /[^a-zA-Z0-9 \n.,!?:;'"()\[\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿]/
-
+  WHITELIST          = /[^a-zA-Z0-9 \n.,!?:;'"()\[\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿]/
   MALICIOUS_PATTERNS = %w[; -- /* */ UNION SELECT INSERT DELETE DROP EXEC].freeze
 
   def initialize(text)

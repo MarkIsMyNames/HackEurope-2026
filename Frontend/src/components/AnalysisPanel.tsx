@@ -153,6 +153,29 @@ export function AnalysisPanel({ prompt }: AnalysisPanelProps) {
             </div>
           </div>
         </div>
+
+        {/* Downstream model output */}
+        <div>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Downstream LLM Output</h3>
+          <div className="bg-secondary rounded-md p-3 border border-border">
+            <p className="text-sm font-mono text-foreground leading-relaxed break-all">
+              {prompt.downstreamOutput?.trim() || <span className="text-muted-foreground italic">Unavailable — downstream model not configured</span>}
+            </p>
+          </div>
+        </div>
+
+        {/* Safety review */}
+        <div>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Output Safety Review</h3>
+          <div className={`rounded-md border p-4 ${prompt.safetyReview?.safe ? "gradient-safe border-primary/20" : "gradient-danger border-danger/20"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-foreground leading-relaxed">{prompt.safetyReview?.reason || "Safety review unavailable"}</p>
+              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded whitespace-nowrap ${prompt.safetyReview?.safe ? "bg-primary/20 text-primary" : "bg-danger/20 text-danger"}`}>
+                {(prompt.safetyReview?.verdict || "unknown").toUpperCase()}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
