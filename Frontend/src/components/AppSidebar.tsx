@@ -55,11 +55,11 @@ export function AppSidebar() {
             <span className="text-xs font-medium text-muted-foreground">G</span>
           </div>
           <div className="hidden lg:block">
-            <p className="text-xs font-medium text-foreground">Guardian v1.0</p>
+            <p className="text-xs font-medium text-foreground">PromptSecure</p>
             <p className="text-[10px] text-muted-foreground">Enterprise Plan</p>
           </div>
         </div>
       </div>
     </aside>
-  );
+  );   
 }
