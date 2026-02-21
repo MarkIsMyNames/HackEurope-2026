@@ -20,7 +20,7 @@ export function MetricCards({ totalPrompts, threatsBlocked, avgRiskScore }: Metr
         <p className="text-3xl font-semibold font-mono text-foreground animate-counter">
           {totalPrompts.toLocaleString()}
         </p>
-        <p className="text-xs text-muted-foreground mt-1">+12.3% from last hour</p>
+        <p className="text-xs text-muted-foreground mt-1">Total this session</p>
       </div>
 
       {/* Threats Blocked */}
@@ -32,7 +32,7 @@ export function MetricCards({ totalPrompts, threatsBlocked, avgRiskScore }: Metr
         <p className="text-3xl font-semibold font-mono text-danger animate-counter">
           {threatsBlocked}
         </p>
-        <p className="text-xs text-danger/70 mt-1">3 in the last 5 minutes</p>
+        <p className="text-xs text-danger/70 mt-1">High-risk entries this session</p>
       </div>
 
       {/* Avg Risk Score */}

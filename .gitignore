@@ -8,6 +8,7 @@ app.log
 output.txt
 input.txt
 injections.json
+history.json
 
 # Secrets
 .env

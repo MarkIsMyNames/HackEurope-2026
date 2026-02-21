@@ -2,6 +2,15 @@ import { PromptEntry } from "@/data/mockData";
 
 const API_BASE = "http://localhost:3000/api";
 
+export async function fetchHistory(): Promise<PromptEntry[]> {
+  const res = await fetch(`${API_BASE}/history`);
+  const data = await res.json();
+  return (data.history as Array<Record<string, unknown>>).map((e) => ({
+    ...e,
+    timestamp: new Date(e.timestamp as string),
+  })) as PromptEntry[];
+}
+
 export async function fetchPrompt(): Promise<string> {
   const res = await fetch(`${API_BASE}/prompt`);
   const data = await res.json();
