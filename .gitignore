@@ -1,1 +1,8 @@
 threat_log.txt
+.env
+__pycache__/
+*.pyc
+output.txt
+input.txt
+.idea
+injections.json
