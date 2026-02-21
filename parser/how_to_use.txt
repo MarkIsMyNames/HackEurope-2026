@@ -1,2 +1,0 @@
-make instance of PromptInjectioDetector
-run sanitize on the text and that returns the sanitized text/data

@@ -1,0 +1,12 @@
+{
+  "files": {
+    "input":      "input.txt",
+    "output":     "output.txt",
+    "injections": "injections.json",
+    "prompt":     "prompt.txt",
+    "log":        "app.log"
+  },
+  "model":                    "claude-sonnet-4-6",
+  "max_tokens":               4096,
+  "injections_example_limit": 40
+}

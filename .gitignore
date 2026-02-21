@@ -1,4 +1,5 @@
 threat_log.txt
+app.log
 .env
 __pycache__/
 *.pyc
