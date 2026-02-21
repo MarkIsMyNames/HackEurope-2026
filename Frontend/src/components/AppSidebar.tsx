@@ -5,13 +5,15 @@ import {
   SlidersHorizontal,
   FileText,
   Shield,
+  CreditCard,
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/" },
-  { label: "Analytics", icon: BarChart3, path: "/analytics" },
-  { label: "Rule Config", icon: SlidersHorizontal, path: "/rules" },
-  { label: "Incident Logs", icon: FileText, path: "/incidents" },
+  { label: "Dashboard",     icon: LayoutDashboard,   path: "/" },
+  { label: "Analytics",     icon: BarChart3,          path: "/analytics" },
+  { label: "Rule Config",   icon: SlidersHorizontal,  path: "/rules" },
+  { label: "Incident Logs", icon: FileText,           path: "/incidents" },
+  { label: "Pricing",       icon: CreditCard,         path: "/pricing" },
 ];
 
 export function AppSidebar() {
