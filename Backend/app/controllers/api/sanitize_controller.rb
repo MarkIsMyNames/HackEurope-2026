@@ -23,7 +23,7 @@ module Api
 
       Rails.logger.info("[SanitizeController] Done — risk=#{risk_score} (#{risk_level}), injections=#{injections.length}")
 
-      render json: {
+      entry = {
         id:               "prompt-#{Time.now.to_i}-#{rand(1000)}",
         snippet:          text,
         sanitized:        result[:sanitized],
@@ -39,6 +39,9 @@ module Api
         validation:       validation,
         heuristics:       heuristics
       }
+
+      persist_history(entry)
+      render json: entry
     end
 
     def injections
@@ -47,6 +50,14 @@ module Api
       render json: { injections: data }
     rescue JSON::ParserError
       render json: { injections: [] }
+    end
+
+    def history
+      file = Rails.root.join(AppConfig[:history_file])
+      data = file.exist? ? JSON.parse(file.read) : []
+      render json: { history: data }
+    rescue JSON::ParserError
+      render json: { history: [] }
     end
 
     private
@@ -66,6 +77,16 @@ module Api
       elsif score > risk[:medium_threshold] then "medium"
       else  "low"
       end
+    end
+
+    def persist_history(entry)
+      file    = Rails.root.join(AppConfig[:history_file])
+      history = file.exist? ? JSON.parse(file.read) : []
+      history << entry.transform_keys(&:to_s)
+      file.write(JSON.generate(history))
+      Rails.logger.info("[SanitizeController] History updated (#{history.length} entries)")
+    rescue => e
+      Rails.logger.error("[SanitizeController] Failed to persist history: #{e.message}")
     end
   end
 end

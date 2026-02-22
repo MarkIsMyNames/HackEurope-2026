@@ -1,20 +1,21 @@
 class ParserService
-  WHITELIST          = /[^a-zA-Z0-9 \n.,!?:;'"()\[\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿]/
-  MALICIOUS_PATTERNS = %w[; -- /* */ UNION SELECT INSERT DELETE DROP EXEC].freeze
-
   def initialize(text)
     @text   = text
     @logger = Rails.logger
+
+    cfg        = load_parser_config
+    @whitelist = Regexp.new("[^#{cfg[:whitelist]}]")
+    @patterns  = Array(cfg[:blacklist_patterns]).map(&:to_s).reject(&:empty?)
   end
 
   def sanitize
-    result = @text.gsub(WHITELIST, "")
+    result = @text.gsub(@whitelist, "")
     @logger.info("[ParserService] Sanitized #{@text.length - result.length} character(s)")
     result
   end
 
   def threats_detected?
-    MALICIOUS_PATTERNS.any? do |pattern|
+    @patterns.any? do |pattern|
       if @text.include?(pattern)
         @logger.warn("[ParserService] Threat pattern detected: #{pattern.inspect}")
         true
@@ -23,12 +24,9 @@ class ParserService
   end
 
   def validation
-    threats = threats_detected?
-    encoded = encoded?
-
     {
-      characterFiltering: threats ? "fail" : "pass",
-      encodingCheck:      encoded ? "fail" : "pass"
+      characterFiltering: threats_detected? ? "fail" : "pass",
+      encodingCheck:      encoded? ? "fail" : "pass"
     }
   end
 
@@ -40,13 +38,18 @@ class ParserService
     {
       length:          [(@text.length.to_f / 20).round, 100].min,
       complexity:      [[100 - unique_ratio, 0].max, 100].min,
-      contextualShift: [MALICIOUS_PATTERNS.count { |p| @text.include?(p) } * 20, 100].min,
+      contextualShift: [@patterns.count { |p| @text.include?(p) } * 20, 100].min,
       entropy:         [char_variety, 100].min,
       repetition:      [[100 - unique_ratio, 0].max, 100].min
     }
   end
 
   private
+
+  def load_parser_config
+    path = Rails.root.join(AppConfig[:parser_config_file])
+    JSON.parse(path.read, symbolize_names: true)
+  end
 
   def encoded?
     base64_pattern = %r{[A-Za-z0-9+/]{20,}={0,2}}

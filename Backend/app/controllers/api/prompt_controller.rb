@@ -1,16 +1,41 @@
 module Api
   class PromptController < ApplicationController
     def show
-      file    = Rails.root.join(AppConfig[:prompt_file])
-      content = file.exist? ? file.read : ""
-      Rails.logger.info("[PromptController] Prompt read (#{content.length} chars)")
-      render json: { content: content }
+      render_prompt(AppConfig[:prompt_file])
     end
 
     def update
-      content = params[:content].to_s
-      Rails.root.join(AppConfig[:prompt_file]).write(content)
-      Rails.logger.info("[PromptController] Prompt updated (#{content.length} chars)")
+      save_prompt(AppConfig[:prompt_file], params[:content].to_s)
+    end
+
+    def show_downstream
+      render_prompt(AppConfig.dig(:downstream_llm, :prompt_file))
+    end
+
+    def update_downstream
+      save_prompt(AppConfig.dig(:downstream_llm, :prompt_file), params[:content].to_s)
+    end
+
+    def show_safety
+      render_prompt(AppConfig.dig(:safety_llm, :prompt_file))
+    end
+
+    def update_safety
+      save_prompt(AppConfig.dig(:safety_llm, :prompt_file), params[:content].to_s)
+    end
+
+    private
+
+    def render_prompt(filename)
+      file    = Rails.root.join(filename)
+      content = file.exist? ? file.read : ""
+      Rails.logger.info("[PromptController] #{filename} read (#{content.length} chars)")
+      render json: { content: content }
+    end
+
+    def save_prompt(filename, content)
+      Rails.root.join(filename).write(content)
+      Rails.logger.info("[PromptController] #{filename} updated (#{content.length} chars)")
       render json: { content: content }
     end
   end

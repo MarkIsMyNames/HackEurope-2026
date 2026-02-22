@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-PromptSecure — a prompt injection detection and sanitization tool. User input passes through a three-stage pipeline: rule-based parsing, AI-powered injection detection, and then a downstream LLM call whose output is independently safety-reviewed. Stripe Checkout handles payments.
+A prompt injection detection and sanitization tool with a Rails API backend and React frontend. User input passes through a three-stage pipeline: a fast rule-based parser, an AI-powered sanitization stage that detects and removes injection attempts, and then a downstream LLM call whose output is independently safety-reviewed. Detected injections are persisted and fed back into future requests to improve detection over time. Stripe Checkout handles payments.
 
 ## Running the project
 
@@ -27,7 +27,7 @@ npm run dev
 
 ### Three-stage pipeline
 
-1. **Rule-based — `ParserService`**: Strips disallowed characters (whitelist regex) and flags known SQL/command injection patterns (`UNION`, `DROP`, `--`, etc.). Fast, no API cost.
+1. **Rule-based — `ParserService`**: Reads `Backend/parser_config.json` per-request for the character whitelist regex and blacklist patterns. Strips disallowed characters and flags matching patterns. No API cost.
 
 2. **Sanitize LLM — `SanitizeService`**: Sends parser output to Claude using `Backend/prompt.txt` as the system prompt. Claude returns `{ "sanitized": "...", "injections": [...] }`. Previously detected injections (capped at `injections_example_limit`) are appended as examples to improve detection over time.
 
@@ -39,50 +39,57 @@ All three LLM calls go through **`LlmGatewayService`**, which supports both Anth
 
 Detected injections are deduplicated and appended to `Backend/injections.json` (gitignored). On each request they are fed back into the sanitize system prompt, making detection progressively smarter.
 
+### Request history
+
+Every sanitized entry is appended to `Backend/history.json` (gitignored, created at runtime). The Analytics page reads this via `GET /api/history` to power the charts.
+
 ### Risk scoring
 
 `SanitizeController#compute_risk_score` combines parser flags, per-injection count, and encoding detection into a 0–100 score. All thresholds and weights live in `Backend/config.json` under `risk`.
 
 ## Configuration
 
-All tunable values live in `Backend/config.json`, loaded at boot by `Backend/config/initializers/app_config.rb` into the frozen `AppConfig` hash. Never hardcode values that belong here.
+### `Backend/config.json`
 
-| Key | Default | Purpose |
-|-----|---------|---------|
-| `model` | `claude-sonnet-4-6` | Model for the sanitize stage |
-| `max_tokens` | `4096` | Max tokens for sanitize response |
-| `anthropic_api_url` | `https://api.anthropic.com/v1/messages` | Anthropic endpoint |
-| `anthropic_api_version` | `2023-06-01` | Anthropic version header (only stable version) |
-| `injections_example_limit` | `40` | Max past examples fed into sanitize prompt |
-| `injections_file` | `injections.json` | Runtime injection log (in `Backend/`) |
-| `prompt_file` | `prompt.txt` | Sanitize system prompt (in `Backend/`) |
-| `http.open_timeout` | `10` | HTTP connect timeout (seconds) |
-| `http.read_timeout` | `60` | HTTP read timeout (seconds) |
-| `risk.high_threshold` | `60` | Score above which label is "high" |
-| `risk.medium_threshold` | `30` | Score above which label is "medium" |
-| `risk.parser_flag_weight` | `40` | Score added when parser detects threats |
-| `risk.injection_weight` | `20` | Score added per injection Claude finds |
-| `risk.encoding_fail_weight` | `10` | Score added when base64/hex encoding detected |
-| `downstream_llm.enabled` | `true` | Toggle downstream LLM call |
-| `downstream_llm.model` | `claude-sonnet-4-6` | Model for downstream response |
-| `downstream_llm.max_tokens` | `600` | Max tokens for downstream response |
-| `downstream_llm.temperature` | `0.2` | Temperature for downstream response |
-| `downstream_llm.prompt_file` | `downstream_prompt.txt` | Downstream system prompt (in `Backend/`) |
-| `safety_llm.enabled` | `true` | Toggle safety review |
-| `safety_llm.model` | `claude-sonnet-4-6` | Model for safety classification |
-| `safety_llm.max_tokens` | `350` | Max tokens for safety response |
-| `safety_llm.temperature` | `0.0` | Temperature for safety classification |
-| `safety_llm.prompt_file` | `safety_prompt.txt` | Safety classifier prompt (in `Backend/`) |
+Loaded at boot by `Backend/config/initializers/app_config.rb` into the frozen `AppConfig` hash. Never hardcode values that belong here.
 
-## Prompt files
+| Key | Purpose |
+|-----|---------|
+| `model` | Model for the sanitize stage |
+| `max_tokens` | Max tokens for sanitize response |
+| `anthropic_api_url` | Anthropic endpoint |
+| `anthropic_api_version` | Anthropic version header (only stable version: `2023-06-01`) |
+| `injections_example_limit` | Max past examples fed into sanitize prompt |
+| `injections_file` | Runtime injection log filename (relative to `Backend/`) |
+| `history_file` | Runtime request history filename (relative to `Backend/`) |
+| `prompt_file` | Sanitize system prompt filename (relative to `Backend/`) |
+| `parser_config_file` | Parser rules filename (relative to `Backend/`) |
+| `http.open_timeout` / `http.read_timeout` | HTTP timeouts (seconds) |
+| `risk.*` | Risk score weights and thresholds |
+| `downstream_llm.*` | Model, tokens, temperature, prompt file for the downstream LLM |
+| `safety_llm.*` | Model, tokens, temperature, prompt file for the safety classifier |
 
-All system prompts live in `Backend/` as plain text files — edit them without touching code:
+### `Backend/parser_config.json`
 
-| File | Purpose |
-|------|---------|
-| `Backend/prompt.txt` | Instructs Claude to detect and strip injection attempts, return strict JSON |
-| `Backend/downstream_prompt.txt` | System prompt for the downstream LLM that processes sanitized user input |
-| `Backend/safety_prompt.txt` | Instructs the safety classifier to return `{ safe, verdict, reason }` JSON |
+Read per-request by `ParserService`. Contains the full character whitelist and blacklist patterns — no defaults in code. Editable via the Rule Config UI.
+
+```json
+{
+  "whitelist": "a-zA-Z0-9 \\n.,!?:;\"()[]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿",
+  "blacklist_patterns": [";", "--", "/*", "*/", "UNION", "SELECT", "INSERT", "DELETE", "DROP", "EXEC"]
+}
+```
+
+## Editable files (via Rule Config UI)
+
+All four configurable files are editable live through the Rule Config page (`/rule-config`). Changes take effect on the next request — no restart needed.
+
+| File | Tab | Format | Purpose |
+|------|-----|--------|---------|
+| `Backend/prompt.txt` | Sanitize Prompt | Plain text | Instructs Claude to detect and strip injections, return `{ sanitized, injections[] }` |
+| `Backend/downstream_prompt.txt` | Postprocessing Prompt | Plain text | System prompt for the downstream LLM |
+| `Backend/safety_prompt.txt` | Safety Prompt | Plain text | Instructs safety classifier to return `{ safe, verdict, reason }` |
+| `Backend/parser_config.json` | Parser Rules | JSON | Character whitelist + blacklist patterns |
 
 ## API endpoints
 
@@ -92,12 +99,19 @@ All under `/api`:
 |--------|------|-------------|
 | `POST` | `/sanitize` | Full pipeline — returns `PromptEntry` JSON |
 | `GET` | `/injections` | All logged injection strings from `injections.json` |
-| `GET` | `/prompt` | Current contents of `prompt.txt` |
-| `PUT` | `/prompt` | Overwrite `prompt.txt` with `{ content: "..." }` |
+| `GET` | `/history` | All historical `PromptEntry` records from `history.json` |
+| `GET` | `/prompt` | Read `prompt.txt` |
+| `PUT` | `/prompt` | Write `prompt.txt` |
+| `GET` | `/downstream_prompt` | Read `downstream_prompt.txt` |
+| `PUT` | `/downstream_prompt` | Write `downstream_prompt.txt` |
+| `GET` | `/safety_prompt` | Read `safety_prompt.txt` |
+| `PUT` | `/safety_prompt` | Write `safety_prompt.txt` |
+| `GET` | `/parser_config` | Read `parser_config.json` |
+| `PUT` | `/parser_config` | Write `parser_config.json` |
 | `POST` | `/stripe/checkout` | Create Stripe Checkout session, returns `{ url }` |
 | `POST` | `/stripe/webhook` | Receive and verify Stripe webhook events |
 
-CORS is configured in `Backend/config/initializers/cors.rb` to allow any `localhost` or `127.0.0.1` origin on any port.
+CORS allows any `localhost` or `127.0.0.1` origin on any port.
 
 ## Stripe integration
 
@@ -105,48 +119,15 @@ CORS is configured in `Backend/config/initializers/cors.rb` to allow any `localh
 
 ## Frontend structure
 
-- `src/lib/api.ts` — all fetch calls (`sanitizeText`, `fetchPrompt`, `savePrompt`, `fetchInjections`, `createCheckoutSession`)
+- `src/lib/api.ts` — all fetch calls (`sanitizeText`, `fetchHistory`, `fetchPrompt`, `savePrompt`, `fetchDownstreamPrompt`, `saveDownstreamPrompt`, `fetchSafetyPrompt`, `saveSafetyPrompt`, `fetchParserConfig`, `saveParserConfig`, `fetchInjections`, `createCheckoutSession`)
 - `src/data/mockData.ts` — `PromptEntry` TypeScript interface (source of truth for API response shape)
 - `src/pages/Index.tsx` — dashboard with input and live result feed
-- `src/pages/Analytics.tsx` — charts powered by session history
-- `src/pages/RuleConfig.tsx` — edit and save `prompt.txt` via the API
+- `src/pages/Analytics.tsx` — charts powered by `GET /api/history`
+- `src/pages/RuleConfig.tsx` — four tabs: Sanitize Prompt, Postprocessing Prompt, Safety Prompt, Parser Rules
 - `src/pages/IncidentLogs.tsx` — list all logged injections
 - `src/pages/Pricing.tsx` — Stripe checkout page
 - `src/pages/PaymentSuccess.tsx` / `PaymentCancel.tsx` — post-payment pages
 - `src/components/AnalysisPanel.tsx` — sanitized output, injections list, validation, radar chart, ML insight
-
-## Stripe integration
-
-Stripe Checkout is implemented fully in the Rails backend. The frontend calls the checkout endpoint, receives a Stripe-hosted URL, and redirects the user there.
-
-**Endpoints:**
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/stripe/checkout` | Creates a Stripe Checkout session, returns `{ url }` |
-| `POST` | `/api/stripe/webhook` | Receives and verifies signed Stripe webhook events |
-
-**Price ID resolution (`StripeService`):** Priority order:
-1. `STRIPE_PRICE_ID` env var (set this in production)
-2. `Backend/stripe_cache.json` (written automatically on first run — gitignored)
-3. Auto-creates a PromptSecure product + price (€300 EUR) via the Stripe API and caches it
-
-**Setup:**
-
-1. Add `STRIPE_SECRET_KEY` to `Backend/.env` (get from [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys))
-2. Optionally set `STRIPE_PRICE_ID` to skip auto-creation
-3. For webhooks: create a webhook endpoint in the Stripe Dashboard pointing to `POST /api/stripe/webhook`, copy the signing secret into `STRIPE_WEBHOOK_SECRET`
-4. Set `FRONTEND_URL` in `Backend/.env` if deploying (defaults to `http://localhost:5173`)
-
-**Key backend files:**
-- `Backend/config/initializers/stripe.rb` — sets `Stripe.api_key` from env at boot
-- `Backend/app/services/stripe_service.rb` — price ID resolution and auto-creation
-- `Backend/app/controllers/api/stripe_controller.rb` — checkout and webhook actions
-
-**Frontend flow:**
-- `/pricing` — product page with checkout button; calls `createCheckoutSession()` from `src/lib/api.ts` then redirects to Stripe
-- `/payment/success` — shown after successful payment
-- `/payment/cancel` — shown when user cancels; includes "Try again" link back to `/pricing`
 
 ## Technology constraints
 
@@ -157,16 +138,16 @@ The frontend is **React with TypeScript** (Vite, Tailwind, shadcn/ui). All API c
 ## Code standards
 
 ### No magic strings or values
-All configurable values belong in `Backend/config.json` and are accessed via `AppConfig`. File paths always use `Rails.root.join(AppConfig[:key])`. `LlmGatewayService` receives all config values explicitly — it never reads `AppConfig` for model/token settings.
+All static config lives in `Backend/config.json` (accessed via `AppConfig`). Dynamic runtime config lives in separate JSON files (`parser_config.json`). File paths always use `Rails.root.join(AppConfig[:key])`. `LlmGatewayService` receives all config values explicitly.
 
 ### Logging
-Use `Rails.logger` — never `puts`. Every service and controller prefixes messages with its class name, e.g. `[SanitizeService]`. Use `info` for normal steps, `warn` for handled anomalies, `error` for failures.
+Use `Rails.logger` — never `puts`. Every service and controller prefixes messages with its class name, e.g. `[SanitizeService]`. Use `info` for normal steps, `warn` for handled anomalies, `error` for failures. Include relevant values (counts, text fragments) in log messages.
 
 ### Service design
 - Services take their input in `initialize` and expose a `call` method (or named query methods).
-- File writes stay in the service that owns the data.
-- Controllers are thin: parse params → call services → render JSON.
+- File writes stay in the service that owns the data — controllers do not write files directly, except for `persist_history` which is controller-local.
+- Controllers are thin: parse params → call services → compute derived values → render JSON.
 
 ## Gitignored runtime files
 
-`Backend/injections.json`, `Backend/history.json`, `Backend/stripe_cache.json`, `Backend/log/`, `Backend/.env` are gitignored. `Backend/config.json`, `Backend/prompt.txt`, `Backend/downstream_prompt.txt`, and `Backend/safety_prompt.txt` are all tracked.
+`Backend/injections.json`, `Backend/history.json`, `Backend/stripe_cache.json`, `Backend/log/`, `Backend/.env` are gitignored. All config and prompt files (`config.json`, `parser_config.json`, `prompt.txt`, `downstream_prompt.txt`, `safety_prompt.txt`) are tracked.
