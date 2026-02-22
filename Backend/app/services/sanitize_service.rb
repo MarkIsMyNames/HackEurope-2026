@@ -57,7 +57,9 @@ class SanitizeService
   end
 
   def save_injections(known, new_injections)
-    combined = (known + new_injections).uniq
+    # Deduplicate case-insensitively, preserving the first occurrence of each string.
+    seen     = {}
+    combined = (known + new_injections).select { |i| seen[i.downcase].nil? && (seen[i.downcase] = true) }
     @injections_file.write(JSON.pretty_generate(combined))
     @logger.info("[SanitizeService] Injections log updated (#{combined.length} total)")
   end
@@ -188,14 +190,26 @@ class SanitizeService
 
   # ── ML insight ───────────────────────────────────────────────────────────────
 
+  INJECTION_PATTERNS = [
+    [/ignore|disregard|forget|override|bypass/i,      "Instruction override attempt detected"],
+    [/you are|act as|pretend|roleplay|persona|assume/i, "Role confusion vector identified"],
+    [/system|prompt|instruction|initial|context/i,    "System prompt extraction attempt flagged"],
+    [/base64|encode|decode|rot13|hex|cipher/i,        "Encoding obfuscation technique detected"],
+    [/admin|root|sudo|superuser|privilege|elevated/i, "Privilege escalation attempt detected"],
+    [/jailbreak|dan|do anything|no restriction/i,     "Known jailbreak pattern matched"],
+  ].freeze
+
   def ml_insight(injections)
     return "No anomalous patterns detected. Standard user query." if injections.empty?
 
-    [
-      "Token pattern matches known jailbreak template (confidence: #{rand(85..99)}%)",
-      "Semantic similarity to prompt extraction attack: #{rand(75..99).to_f / 100}",
-      "Instruction override attempt detected via role confusion vector",
-      "Multi-turn manipulation attempt detected. Context window exploit."
-    ].sample
+    all_text = injections.join(" ")
+    matched  = INJECTION_PATTERNS.filter_map { |pattern, label| label if all_text.match?(pattern) }
+
+    if matched.any?
+      count_note = injections.length > 1 ? " (#{injections.length} segments)" : ""
+      matched.first + count_note
+    else
+      "Anomalous instruction pattern detected in #{injections.length} segment(s)"
+    end
   end
 end

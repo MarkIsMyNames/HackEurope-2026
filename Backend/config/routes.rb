@@ -13,7 +13,9 @@ Rails.application.routes.draw do
     put  "safety_prompt",     to: "prompt#update_safety"
     get  "parser_config",     to: "parser_config#show"
     put  "parser_config",     to: "parser_config#update"
-    post "stripe/checkout",   to: "stripe#checkout"
-    post "stripe/webhook",    to: "stripe#webhook"
+    post "stripe/checkout",        to: "stripe#checkout"
+    post "stripe/webhook",         to: "stripe#webhook"
+    post "solana/payment_request", to: "solana#payment_request"
+    post "solana/verify",          to: "solana#verify"
   end
 end

@@ -91,6 +91,35 @@ export async function createCheckoutSession(tier: "person" | "business" | "enter
   return data.url as string;
 }
 
+export interface SolanaPaymentRequest {
+  url: string;
+  reference: string;
+  amount_sol: number;
+  token_grant: string;
+}
+
+export async function createSolanaPaymentRequest(): Promise<SolanaPaymentRequest> {
+  const res = await fetch(`${API_BASE}/solana/payment_request`, { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function verifySolanaPayment(reference: string): Promise<{ paid: boolean; signature?: string }> {
+  const res = await fetch(`${API_BASE}/solana/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reference }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function sanitizeText(text: string): Promise<PromptEntry> {
   const res = await fetch(`${API_BASE}/sanitize`, {
     method: "POST",

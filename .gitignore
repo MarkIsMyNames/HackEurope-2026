@@ -4,6 +4,7 @@ injections.json
 Backend/injections.json
 Backend/history.json
 Backend/stripe_cache.json
+Backend/solana_payments.json
 Backend/history.json
 
 # Secrets

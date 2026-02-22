@@ -36,5 +36,15 @@
     "max_tokens": 350,
     "temperature": 0.0,
     "prompt_file": "safety_prompt.txt"
+  },
+  "solana": {
+    "rpc_url": "https://api.devnet.solana.com",
+    "recipient_address": "7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV",
+    "amount_sol": 1.0,
+    "network": "devnet",
+    "label": "PromptSecure",
+    "message": "PromptSecure one-time access",
+    "token_grant": "10M tokens",
+    "payments_file": "solana_payments.json"
   }
 }
