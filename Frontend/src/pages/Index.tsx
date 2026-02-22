@@ -1,21 +1,27 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { MetricCards } from "@/components/MetricCards";
 import { PromptFeed } from "@/components/PromptFeed";
 import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PromptEntry } from "@/data/mockData";
-import { sanitizeText } from "@/lib/api";
+import { sanitizeText, fetchHistory } from "@/lib/api";
 import { useSession } from "@/contexts/SessionContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2 } from "lucide-react";
 
 const Index = () => {
+  const queryClient = useQueryClient();
   const { prompts, addPrompt } = useSession();
   const [selectedPrompt, setSelectedPrompt] = useState<PromptEntry | null>(null);
   const [inputText, setInputText] = useState("");
+
+  const { data: history = [] } = useQuery({
+    queryKey: ["history"],
+    queryFn: fetchHistory,
+  });
 
   const mutation = useMutation({
     mutationFn: sanitizeText,
@@ -23,6 +29,7 @@ const Index = () => {
       addPrompt(entry);
       setSelectedPrompt(entry);
       setInputText("");
+      queryClient.invalidateQueries({ queryKey: ["history"] });
     },
   });
 
@@ -32,12 +39,11 @@ const Index = () => {
     mutation.mutate(text);
   };
 
-  const threatsBlocked = prompts.filter((p) => p.riskLevel === "high").length;
-  const avgRiskScore =
-    prompts.length > 0
-      ? Math.round(prompts.reduce((s, p) => s + p.riskScore, 0) / prompts.length)
-      : 0;
-  const totalInjections = prompts.reduce((s, p) => s + p.injections.length, 0);
+  const threatsBlocked  = history.filter((p) => p.riskLevel === "high").length;
+  const avgRiskScore    = history.length > 0
+    ? Math.round(history.reduce((s, p) => s + p.riskScore, 0) / history.length)
+    : 0;
+  const totalInjections = history.reduce((s, p) => s + p.injections.length, 0);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -45,7 +51,7 @@ const Index = () => {
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader />
         <MetricCards
-          totalPrompts={prompts.length}
+          totalPrompts={history.length}
           threatsBlocked={threatsBlocked}
           avgRiskScore={avgRiskScore}
           totalInjections={totalInjections}
