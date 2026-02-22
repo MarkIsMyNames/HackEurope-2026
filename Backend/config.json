@@ -44,7 +44,7 @@
     "network": "devnet",
     "label": "PromptSecure",
     "message": "PromptSecure one-time access",
-    "token_grant": "10M tokens",
+    "token_grant": "10 million tokens",
     "payments_file": "solana_payments.json"
   }
 }

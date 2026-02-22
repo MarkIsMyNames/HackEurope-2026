@@ -276,15 +276,11 @@ const Pricing = () => {
               <div className="flex flex-col items-center gap-4 bg-card border border-border rounded-xl p-6 mt-2">
                 <p className="text-sm font-medium text-foreground">Solana Pay — one-time access</p>
                 <p className="text-xs text-muted-foreground text-center">
-                  Send exactly{" "}
-                  <span className="font-mono font-semibold text-foreground">
-                    {solanaRequest.amount_sol} SOL
-                  </span>{" "}
-                  to receive{" "}
-                  <span className="font-semibold text-foreground">
-                    {solanaRequest.token_grant}
-                  </span>
-                  . Scan the QR code with a Solana-compatible wallet (Phantom, Solflare, etc.)
+                  {"Send exactly "}
+                  <span className="font-mono font-semibold text-foreground">{solanaRequest.amount_sol}</span>
+                  {" SOL to receive "}
+                  <span className="font-semibold text-foreground">{solanaRequest.token_grant}</span>
+                  {". Scan the QR code with a Solana-compatible wallet (Phantom, Solflare, etc.)"}
                 </p>
 
                 {/* QR code on white background so it's always scannable */}
