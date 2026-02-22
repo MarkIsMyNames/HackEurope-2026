@@ -3,9 +3,10 @@ class ParserService
     @text   = text
     @logger = Rails.logger
 
-    cfg        = load_parser_config
-    @whitelist = Regexp.new("[^#{cfg[:whitelist]}]")
-    @patterns  = Array(cfg[:blacklist_patterns]).map(&:to_s).reject(&:empty?)
+    cfg              = load_parser_config
+    escaped_whitelist = cfg[:whitelist].gsub(/[\[\]{}^\\]/) { |char| "\\#{char}" }
+    @whitelist       = Regexp.new("[^#{escaped_whitelist}]")
+    @patterns        = Array(cfg[:blacklist_patterns]).map(&:to_s).reject(&:empty?)
   end
 
   def sanitize
