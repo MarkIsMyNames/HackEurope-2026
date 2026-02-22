@@ -2,12 +2,12 @@ class StripeService
   CACHE_FILE = Rails.root.join("stripe_cache.json")
 
   # Pricing (monthly subscriptions):
-  # Person:     €19/month flat  — up to 10M tokens
-  # Business:   €79/month flat  — up to 50M tokens
+  # Personal:   €19/month flat  — up to 1M tokens
+  # Business:   €89/month flat  — up to 5M tokens
   # Enterprise: €17 per million tokens (metered, billed monthly)
   TIERS = {
     person: {
-      name:        "PromptSecure Person",
+      name:        "PromptSecure Personal",
       description: "For individual developers — up to 1M tokens per month",
       amount:      1900
     },
@@ -68,15 +68,27 @@ class StripeService
       )
 
       price_params = {
-        product:    product.id,
+        product:     product.id,
         unit_amount: cfg[:amount],
-        currency:   "eur",
-        recurring:  {
+        currency:    "eur",
+        recurring:   {
           interval:   "month",
           usage_type: cfg[:metered] ? "metered" : "licensed"
         }
       }
-      price_params[:transform_quantity] = cfg[:transform_quantity] if cfg[:transform_quantity]
+
+      if cfg[:metered]
+        # Stripe >= 2025-03-31.basil requires metered prices to be backed by a Billing Meter.
+        meter = Stripe::Billing::Meter.create(
+          display_name:        cfg[:name],
+          event_name:          "#{tier}_token_usage",
+          default_aggregation: { formula: "sum" }
+        )
+        price_params[:recurring][:meter] = meter.id
+        Rails.logger.info("[StripeService] Created meter #{meter.id} for #{tier}")
+      else
+        price_params[:transform_quantity] = cfg[:transform_quantity] if cfg[:transform_quantity]
+      end
 
       price = Stripe::Price.create(price_params)
 

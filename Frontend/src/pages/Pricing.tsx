@@ -21,13 +21,13 @@ const TIERS: {
 }[] = [
   {
     id: "person",
-    name: "Person",
+    name: "Personal",
     price: "€19",
     period: "/ month",
-    tokens: "Up to 10M tokens",
+    tokens: "Up to 1M tokens",
     description: "For individual developers",
     features: [
-      "Up to 10M tokens per month",
+      "Up to 1M tokens per month",
       "AI-powered injection detection",
       "Real-time risk scoring",
       "Rule configuration",
@@ -39,12 +39,12 @@ const TIERS: {
   {
     id: "business",
     name: "Business",
-    price: "€79",
+    price: "€89",
     period: "/ month",
-    tokens: "Up to 50M tokens",
+    tokens: "Up to 5M tokens",
     description: "For teams",
     features: [
-      "Up to 50M tokens per month",
+      "Up to 5M tokens per month",
       "AI-powered injection detection",
       "Real-time risk scoring",
       "Rule configuration",
