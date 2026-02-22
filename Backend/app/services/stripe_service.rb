@@ -1,15 +1,47 @@
 class StripeService
   CACHE_FILE = Rails.root.join("stripe_cache.json")
 
-  # Returns the Stripe Price ID to use for checkout.
-  # Priority: STRIPE_PRICE_ID env var → cached file → auto-create.
-  def self.price_id
-    return ENV["STRIPE_PRICE_ID"] if ENV["STRIPE_PRICE_ID"].present?
+  # Pricing (monthly subscriptions):
+  # Person:     €19/month flat  — up to 10M tokens
+  # Business:   €79/month flat  — up to 50M tokens
+  # Enterprise: €17 per million tokens (metered, billed monthly)
+  TIERS = {
+    person: {
+      name:        "PromptSecure Person",
+      description: "For individual developers — up to 1M tokens per month",
+      amount:      1900
+    },
+    business: {
+      name:        "PromptSecure Business",
+      description: "For teams — up to 5M tokens per month",
+      amount:      8900
+    },
+    enterprise: {
+      name:               "PromptSecure Enterprise",
+      description:        "For organisations — €17 per million tokens, billed monthly",
+      amount:             1700,
+      metered:            true,
+      transform_quantity: { divide_by: 1_000_000, round: "up" }
+    }
+  }.freeze
+
+  # Returns the recurring Stripe Price ID for the given tier.
+  # Priority: STRIPE_PRICE_ID_<TIER> env var → cache file → auto-create.
+  def self.price_id(tier)
+    tier = tier.to_sym
+    raise ArgumentError, "Unknown tier: #{tier}" unless TIERS.key?(tier)
+
+    env_key = "STRIPE_PRICE_ID_#{tier.upcase}"
+    return ENV[env_key] if ENV[env_key].present?
 
     cached = load_cache
-    return cached[:price_id] if cached[:price_id]
+    return cached[:"#{tier}_price_id"] if cached[:"#{tier}_price_id"]
 
-    create_price
+    create_price(tier)
+  end
+
+  def self.metered?(tier)
+    TIERS.dig(tier.to_sym, :metered) == true
   end
 
   class << self
@@ -23,15 +55,37 @@ class StripeService
       {}
     end
 
-    def create_price
-      product = Stripe::Product.create(name: "PromptSecure")
-      price   = Stripe::Price.create(
-        product:     product.id,
-        unit_amount: 30_000,
-        currency:    "eur"
+    def save_cache(data)
+      CACHE_FILE.write(JSON.pretty_generate(data))
+    end
+
+    def create_price(tier)
+      cfg = TIERS[tier]
+
+      product = Stripe::Product.create(
+        name:        cfg[:name],
+        description: cfg[:description]
       )
-      CACHE_FILE.write(JSON.pretty_generate({ price_id: price.id, product_id: product.id }))
-      Rails.logger.info("[StripeService] Created product #{product.id} and price #{price.id}")
+
+      price_params = {
+        product:    product.id,
+        unit_amount: cfg[:amount],
+        currency:   "eur",
+        recurring:  {
+          interval:   "month",
+          usage_type: cfg[:metered] ? "metered" : "licensed"
+        }
+      }
+      price_params[:transform_quantity] = cfg[:transform_quantity] if cfg[:transform_quantity]
+
+      price = Stripe::Price.create(price_params)
+
+      cached = load_cache
+      cached[:"#{tier}_price_id"]   = price.id
+      cached[:"#{tier}_product_id"] = product.id
+      save_cache(cached)
+
+      Rails.logger.info("[StripeService] Created #{tier} — product #{product.id}, price #{price.id}")
       price.id
     end
   end

@@ -1,4 +1,4 @@
 {
-  "whitelist": "a-zA-Z0-9 \\n.,!?:;'\"()[]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿",
+  "whitelist": "a-zA-Z0-9 \\n.,!?:;'\"()\\[\\]{}@#%&+=~`^|<>$£€¥₩₹¢₽₺₿",
   "blacklist_patterns": [";", "--", "/*", "*/", "UNION", "SELECT", "INSERT", "DELETE", "DROP", "EXEC"]
 }
