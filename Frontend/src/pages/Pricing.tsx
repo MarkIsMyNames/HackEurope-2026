@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DashboardHeader } from "@/components/DashboardHeader";
-import { createCheckoutSession } from "@/lib/api";
-import { Shield, CheckCircle, Loader2, Zap, Building2 } from "lucide-react";
+import { createCheckoutSession, createSolanaPaymentRequest, verifySolanaPayment, SolanaPaymentRequest } from "@/lib/api";
+import { Shield, CheckCircle, Loader2, Zap, Building2, RefreshCw } from "lucide-react";
+import QRCode from "react-qr-code";
 
 type Tier = "person" | "business" | "enterprise";
 
@@ -74,8 +76,16 @@ const TIERS: {
 ];
 
 const Pricing = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<Tier | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Solana state
+  const [solanaRequest, setSolanaRequest] = useState<SolanaPaymentRequest | null>(null);
+  const [solanaLoading, setSolanaLoading] = useState(false);
+  const [solanaError, setSolanaError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyMessage, setVerifyMessage] = useState<string | null>(null);
 
   const handleCheckout = async (tier: Tier) => {
     setLoading(tier);
@@ -86,6 +96,38 @@ const Pricing = () => {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start checkout");
       setLoading(null);
+    }
+  };
+
+  const handleSolanaCheckout = async () => {
+    setSolanaLoading(true);
+    setSolanaError(null);
+    try {
+      const req = await createSolanaPaymentRequest();
+      setSolanaRequest(req);
+    } catch (e) {
+      setSolanaError(e instanceof Error ? e.message : "Failed to create payment request");
+    } finally {
+      setSolanaLoading(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    if (!solanaRequest) return;
+    setVerifying(true);
+    setVerifyMessage(null);
+    setSolanaError(null);
+    try {
+      const result = await verifySolanaPayment(solanaRequest.reference);
+      if (result.paid) {
+        navigate("/payment/success");
+      } else {
+        setVerifyMessage("Payment not found yet — please wait a moment after sending and try again.");
+      }
+    } catch (e) {
+      setSolanaError(e instanceof Error ? e.message : "Verification failed");
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -179,6 +221,112 @@ const Pricing = () => {
           <p className="text-[10px] text-center text-muted-foreground">
             Secure payment powered by Stripe
           </p>
+
+          {/* Solana Pay section */}
+          <div className="w-full max-w-4xl">
+            <div className="flex items-center gap-3 my-2">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">or pay with crypto</span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+
+            {!solanaRequest ? (
+              <div className="flex flex-col items-center gap-2 pt-2">
+                <p className="text-xs text-muted-foreground text-center">
+                  One-time payment via Solana Pay — includes 10M tokens, no subscription required.
+                </p>
+                <button
+                  onClick={handleSolanaCheckout}
+                  disabled={solanaLoading}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium border border-border bg-background text-foreground hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {solanaLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      {/* Solana gradient diamond logo */}
+                      <svg width="16" height="16" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21.4 93.6a4 4 0 0 1 2.8-1.2h98.6c1.8 0 2.7 2.1 1.4 3.4l-21.2 21.2a4 4 0 0 1-2.8 1.2H1.6c-1.8 0-2.7-2.1-1.4-3.4L21.4 93.6Z" fill="url(#a)"/>
+                        <path d="M21.4 11.2A4 4 0 0 1 24.2 10h98.6c1.8 0 2.7 2.1 1.4 3.4L103 34.6a4 4 0 0 1-2.8 1.2H1.6C-.2 35.8-1.1 33.7.2 32.4L21.4 11.2Z" fill="url(#b)"/>
+                        <path d="M100.2 52.2a4 4 0 0 0-2.8-1.2H1.6c-1.8 0-2.7 2.1-1.4 3.4L21.4 75.6a4 4 0 0 0 2.8 1.2h98.6c1.8 0 2.7-2.1 1.4-3.4L100.2 52.2Z" fill="url(#c)"/>
+                        <defs>
+                          <linearGradient id="a" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#9945FF"/><stop offset="1" stopColor="#14F195"/>
+                          </linearGradient>
+                          <linearGradient id="b" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#9945FF"/><stop offset="1" stopColor="#14F195"/>
+                          </linearGradient>
+                          <linearGradient id="c" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+                            <stop stopColor="#9945FF"/><stop offset="1" stopColor="#14F195"/>
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      Pay with Solana
+                    </>
+                  )}
+                </button>
+                {solanaError && (
+                  <p className="text-xs text-destructive">{solanaError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 bg-card border border-border rounded-xl p-6 mt-2">
+                <p className="text-sm font-medium text-foreground">Solana Pay — one-time access</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  {"Send exactly "}
+                  <span className="font-mono font-semibold text-foreground">{solanaRequest.amount_sol}</span>
+                  {" SOL to receive "}
+                  <span className="font-semibold text-foreground">{solanaRequest.token_grant}</span>
+                  {". Scan the QR code with a Solana-compatible wallet (Phantom, Solflare, etc.)"}
+                </p>
+
+                {/* QR code on white background so it's always scannable */}
+                <div className="p-3 bg-white rounded-lg">
+                  <QRCode value={solanaRequest.url} size={180} />
+                </div>
+
+                <p className="text-[10px] text-muted-foreground text-center max-w-xs">
+                  The QR code encodes a Solana Pay request. Your wallet will auto-fill the recipient address and amount.
+                </p>
+
+                {/* Verify button */}
+                <button
+                  onClick={handleVerify}
+                  disabled={verifying}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {verifying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Checking…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      I've sent the payment — verify
+                    </>
+                  )}
+                </button>
+
+                {verifyMessage && (
+                  <p className="text-xs text-muted-foreground text-center">{verifyMessage}</p>
+                )}
+                {solanaError && (
+                  <p className="text-xs text-destructive">{solanaError}</p>
+                )}
+
+                <button
+                  onClick={() => { setSolanaRequest(null); setSolanaError(null); setVerifyMessage(null); }}
+                  className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
