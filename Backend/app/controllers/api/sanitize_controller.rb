@@ -54,7 +54,8 @@ module Api
 
     def history
       file = Rails.root.join(AppConfig[:history_file])
-      data = file.exist? ? JSON.parse(file.read) : []
+      raw  = file.exist? ? file.read.strip : ""
+      data = raw.empty? ? [] : JSON.parse(raw)
       render json: { history: data }
     rescue JSON::ParserError
       render json: { history: [] }
@@ -74,7 +75,8 @@ module Api
 
     def persist_history(entry)
       file    = Rails.root.join(AppConfig[:history_file])
-      history = file.exist? ? JSON.parse(file.read) : []
+      raw     = file.exist? ? file.read.strip : ""
+      history = raw.empty? ? [] : JSON.parse(raw)
       history << entry.transform_keys(&:to_s)
       file.write(JSON.pretty_generate(history))
       Rails.logger.info("[SanitizeController] History updated (#{history.length} entries)")
