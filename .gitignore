@@ -23,5 +23,5 @@ Frontend/*.local
 Backend/.env
 Backend/.env*
 Backend/log/*.log
-Backend/tmp/pids/*
+Backend/tmp/*
 Backend/.bundle
