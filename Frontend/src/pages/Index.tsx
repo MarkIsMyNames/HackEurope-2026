@@ -7,14 +7,12 @@ import { AnalysisPanel } from "@/components/AnalysisPanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PromptEntry } from "@/data/mockData";
 import { sanitizeText, fetchHistory } from "@/lib/api";
-import { useSession } from "@/contexts/SessionContext";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Loader2 } from "lucide-react";
 
 const Index = () => {
   const queryClient = useQueryClient();
-  const { prompts, addPrompt } = useSession();
   const [selectedPrompt, setSelectedPrompt] = useState<PromptEntry | null>(null);
   const [inputText, setInputText] = useState("");
 
@@ -26,7 +24,6 @@ const Index = () => {
   const mutation = useMutation({
     mutationFn: sanitizeText,
     onSuccess: (entry) => {
-      addPrompt(entry);
       setSelectedPrompt(entry);
       setInputText("");
       queryClient.invalidateQueries({ queryKey: ["history"] });
@@ -86,7 +83,7 @@ const Index = () => {
         <div className="flex-1 flex border-t border-border mx-6 mb-6 rounded-lg border border-border overflow-hidden bg-card">
           <div className="w-[45%] border-r border-border">
             <PromptFeed
-              prompts={prompts}
+              prompts={[...history].reverse()}
               selectedId={selectedPrompt?.id ?? null}
               onSelect={setSelectedPrompt}
             />

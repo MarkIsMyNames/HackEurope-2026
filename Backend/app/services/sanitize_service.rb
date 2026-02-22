@@ -17,10 +17,11 @@ class SanitizeService
     result     = parse_sanitize_response(raw)
     sanitized  = result.fetch("sanitized", @text)
     injections = result.fetch("injections", []).to_a.select { |i| i.to_s.strip.length > 0 }
+    risk_level = parse_risk_level(result["risk_level"])
 
     save_injections(known, injections) if injections.any?
 
-    @logger.info("[SanitizeService] #{injections.length} injection(s) found")
+    @logger.info("[SanitizeService] #{injections.length} injection(s) found, risk=#{risk_level}")
     injections.each { |i| @logger.warn("[SanitizeService] Injection removed: #{i}") }
 
     downstream_output = run_downstream_llm(sanitized)
@@ -29,6 +30,7 @@ class SanitizeService
     {
       sanitized:         sanitized,
       injections:        injections,
+      risk_level:        risk_level,
       ml_insight:        ml_insight(injections),
       downstream_output: downstream_output,
       safety_review:     safety_review
@@ -67,7 +69,7 @@ class SanitizeService
     limit = AppConfig[:injections_example_limit]
     return base if known.empty?
 
-    examples = known.last(limit).map { |i| "  • \"#{i}\"" }.join("\n")
+    examples = known.sample([limit, known.length].min).map { |i| "  • \"#{i}\"" }.join("\n")
     base.rstrip + "\n\n" \
       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" \
       "PREVIOUSLY SEEN INJECTIONS  (real examples logged from past runs)\n" \
@@ -168,6 +170,13 @@ class SanitizeService
     }
   rescue JSON::ParserError
     { safe: false, verdict: "unknown", reason: raw.to_s.presence || "Safety model did not return JSON" }
+  end
+
+  # ── Risk level ───────────────────────────────────────────────────────────────
+
+  def parse_risk_level(value)
+    level = value.to_s.downcase.strip
+    %w[low medium high].include?(level) ? level : "low"
   end
 
   # ── ML insight ───────────────────────────────────────────────────────────────

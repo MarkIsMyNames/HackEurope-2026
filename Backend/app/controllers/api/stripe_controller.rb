@@ -3,16 +3,25 @@ module Api
     FRONTEND_URL = ENV.fetch("FRONTEND_URL", "http://localhost:5173")
 
     # POST /api/stripe/checkout
-    # Creates a Stripe Checkout session and returns the hosted payment URL.
+    # Body: { tier: "person" | "business" | "enterprise" }
+    # Creates a Stripe Checkout session for the given subscription tier.
     def checkout
+      tier = params[:tier].to_s.strip.downcase
+      tier = "person" if tier.empty?
+
+      price_id  = StripeService.price_id(tier)
+      line_item = StripeService.metered?(tier) ? { price: price_id } : { price: price_id, quantity: 1 }
+
       session = Stripe::Checkout::Session.create(
-        line_items:  [{ price: StripeService.price_id, quantity: 1 }],
-        mode:        "payment",
+        line_items:  [line_item],
+        mode:        "subscription",
         success_url: "#{FRONTEND_URL}/payment/success",
         cancel_url:  "#{FRONTEND_URL}/payment/cancel",
       )
-      Rails.logger.info("[StripeController] Checkout session created: #{session.id}")
+      Rails.logger.info("[StripeController] Checkout session created: #{session.id} (tier=#{tier})")
       render json: { url: session.url }
+    rescue ArgumentError => e
+      render json: { error: e.message }, status: :unprocessable_entity
     rescue Stripe::StripeError => e
       Rails.logger.error("[StripeController] Checkout session failed: #{e.message}")
       render json: { error: e.message }, status: :unprocessable_entity

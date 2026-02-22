@@ -77,8 +77,12 @@ export async function fetchInjections(): Promise<string[]> {
   return data.injections as string[];
 }
 
-export async function createCheckoutSession(): Promise<string> {
-  const res = await fetch(`${API_BASE}/stripe/checkout`, { method: "POST" });
+export async function createCheckoutSession(tier: "person" | "business" | "enterprise"): Promise<string> {
+  const res = await fetch(`${API_BASE}/stripe/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tier }),
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? `Request failed: ${res.status}`);
