@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   fetchPrompt, savePrompt,
   fetchDownstreamPrompt, saveDownstreamPrompt,
+  fetchSafetyPrompt, saveSafetyPrompt,
   fetchParserConfig, saveParserConfig,
   type ParserConfig,
 } from "@/lib/api";
@@ -244,6 +245,7 @@ const RuleConfig = () => (
           <TabsList className="w-fit">
             <TabsTrigger value="sanitize">Sanitize Prompt</TabsTrigger>
             <TabsTrigger value="downstream">Postprocessing Prompt</TabsTrigger>
+            <TabsTrigger value="safety">Safety Prompt</TabsTrigger>
             <TabsTrigger value="parser">Parser Rules</TabsTrigger>
           </TabsList>
 
@@ -264,6 +266,16 @@ const RuleConfig = () => (
               saver={saveDownstreamPrompt}
               label="Postprocessing Prompt"
               description="System prompt for the downstream LLM that processes sanitized user input before safety review."
+            />
+          </TabsContent>
+
+          <TabsContent value="safety" className="flex flex-col flex-1 mt-0">
+            <PromptTab
+              queryKey="safety_prompt"
+              fetcher={fetchSafetyPrompt}
+              saver={saveSafetyPrompt}
+              label="Safety Prompt"
+              description="System prompt for the safety classifier. Must return { safe, verdict, reason } JSON."
             />
           </TabsContent>
 

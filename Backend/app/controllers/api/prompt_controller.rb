@@ -16,6 +16,14 @@ module Api
       save_prompt(AppConfig.dig(:downstream_llm, :prompt_file), params[:content].to_s)
     end
 
+    def show_safety
+      render_prompt(AppConfig.dig(:safety_llm, :prompt_file))
+    end
+
+    def update_safety
+      save_prompt(AppConfig.dig(:safety_llm, :prompt_file), params[:content].to_s)
+    end
+
     private
 
     def render_prompt(filename)

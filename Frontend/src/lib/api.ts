@@ -39,6 +39,20 @@ export async function saveDownstreamPrompt(content: string): Promise<void> {
   });
 }
 
+export async function fetchSafetyPrompt(): Promise<string> {
+  const res = await fetch(`${API_BASE}/safety_prompt`);
+  const data = await res.json();
+  return data.content as string;
+}
+
+export async function saveSafetyPrompt(content: string): Promise<void> {
+  await fetch(`${API_BASE}/safety_prompt`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+}
+
 export interface ParserConfig {
   whitelist: string;
   blacklist_patterns: string[];
